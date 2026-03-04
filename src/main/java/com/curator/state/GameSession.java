@@ -10,6 +10,8 @@ public final class GameSession {
 
     private static GameMode selectedMode = GameMode.MEDIUM;
     private static boolean showGuardCones = true;
+    private static boolean loggedIn;
+    private static String operatorAlias = "Operator";
 
     private static final List<StolenArtRecord> vault = new ArrayList<>();
     private static final List<StolenArtRecord> runLoot = new ArrayList<>();
@@ -31,6 +33,23 @@ public final class GameSession {
 
     public static synchronized void setShowGuardCones(boolean showGuardConesValue) {
         showGuardCones = showGuardConesValue;
+    }
+
+    public static synchronized boolean isLoggedIn() {
+        return loggedIn;
+    }
+
+    public static synchronized void setLoggedIn(boolean loggedInValue) {
+        loggedIn = loggedInValue;
+    }
+
+    public static synchronized String getOperatorAlias() {
+        return operatorAlias;
+    }
+
+    public static synchronized void setOperatorAlias(String alias) {
+        String normalized = alias == null ? "" : alias.trim();
+        operatorAlias = normalized.isEmpty() ? "Operator" : normalized;
     }
 
     public static synchronized void startRun() {

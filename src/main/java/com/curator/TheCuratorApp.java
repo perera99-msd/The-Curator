@@ -42,6 +42,11 @@ public class TheCuratorApp extends GameApplication {
     protected void initSettings(GameSettings settings) {
         settings.setWidth(APP_WIDTH);
         settings.setHeight(APP_HEIGHT);
+        settings.setFullScreenAllowed(true);
+        settings.setFullScreenFromStart(true);
+        settings.setManualResizeEnabled(true);
+        settings.setPreserveResizeRatio(true);
+        settings.setScaleAffectedOnResize(true);
         settings.setTitle("The Curator | Agent 47");
         settings.setVersion("2.0 Ultra");
         settings.setMainMenuEnabled(true);
@@ -153,6 +158,11 @@ public class TheCuratorApp extends GameApplication {
 
     @Override
     protected void initInput() {
+        FXGL.onKeyDown(KeyCode.F11, () -> {
+            var stage = FXGL.getPrimaryStage();
+            stage.setFullScreen(!stage.isFullScreen());
+        });
+
         FXGL.onKey(KeyCode.W, () -> player.translateY(-playerStep));
         FXGL.onKey(KeyCode.S, () -> player.translateY(playerStep));
         FXGL.onKey(KeyCode.A, () -> player.translateX(-playerStep));

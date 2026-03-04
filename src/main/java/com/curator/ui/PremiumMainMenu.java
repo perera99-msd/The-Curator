@@ -17,12 +17,15 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ListView;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
 import javafx.scene.effect.BlendMode;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -30,12 +33,15 @@ import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Ellipse;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,9 +51,11 @@ public class PremiumMainMenu extends FXGLMenu {
     private static final String THIEF_PATH = "/assests/menu/thief.png";
 
     private final List<Animation> animations = new ArrayList<>();
+    private final Pane menuLayer = new Pane();
     private final Pane contentPanel = new Pane();
     private final Text panelTitle = new Text();
 
+    private StackPane loginOverlay;
     private GameMode selectedMode = GameSession.getSelectedMode();
 
     public PremiumMainMenu() {
@@ -71,11 +79,32 @@ public class PremiumMainMenu extends FXGLMenu {
 
         var root = getContentRoot();
         root.getChildren().add(createBackground(width, height));
-        root.getChildren().add(createTopHeader(width));
-        root.getChildren().add(createNavigationPanel(height));
-        root.getChildren().add(createContentSurface(width, height));
+
+        menuLayer.setPrefSize(width, height);
+        menuLayer.getChildren().addAll(
+                createTopHeader(width),
+                createNavigationPanel(height),
+                createContentSurface(width, height)
+        );
+        root.getChildren().add(menuLayer);
 
         showHomePanel();
+
+        if (GameSession.isLoggedIn()) {
+            menuLayer.setVisible(true);
+            menuLayer.setOpacity(1.0);
+            menuLayer.setDisable(false);
+            menuLayer.setTranslateY(0);
+            return;
+        }
+
+        menuLayer.setVisible(false);
+        menuLayer.setOpacity(0.0);
+        menuLayer.setDisable(true);
+        menuLayer.setTranslateY(18);
+
+        loginOverlay = createLoginOverlay(width, height);
+        root.getChildren().add(loginOverlay);
     }
 
     private Node createBackground(int width, int height) {
@@ -202,6 +231,277 @@ public class PremiumMainMenu extends FXGLMenu {
         return background;
     }
 
+    private StackPane createLoginOverlay(int width, int height) {
+        double cardHorizontalMargin = 32;
+        double maxCardWidth = Math.max(520, width - (cardHorizontalMargin * 2));
+        double minCardWidth = Math.min(760, maxCardWidth);
+        double cardWidth = clamp(width * 0.74, minCardWidth, maxCardWidth);
+
+        double cardVerticalMargin = 28;
+        double maxCardHeight = Math.max(340, height - (cardVerticalMargin * 2));
+        double minCardHeight = Math.min(410, maxCardHeight);
+        double cardHeight = clamp(height * 0.60, minCardHeight, maxCardHeight);
+
+        boolean compactLayout = cardWidth < 820 || height < 650;
+        double leftPaneWidth = compactLayout ? cardWidth - 56 : cardWidth * 0.62;
+        double fieldWidth = clamp(leftPaneWidth - 48, 260, 520);
+
+        var dim = new Rectangle(width, height, Color.rgb(2, 8, 16, 0.82));
+
+        var topGlow = new Rectangle(width, height);
+        topGlow.setFill(new LinearGradient(
+                0.5, 0, 0.5, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.rgb(132, 214, 255, 0.14)),
+                new Stop(0.45, Color.rgb(132, 214, 255, 0.04)),
+                new Stop(1.0, Color.rgb(255, 154, 110, 0.09))
+        ));
+
+        var signalA = new Circle(250, Color.rgb(106, 190, 255, 0.18));
+        signalA.setTranslateX(-width * 0.28);
+        signalA.setTranslateY(-height * 0.14);
+        signalA.setBlendMode(BlendMode.SCREEN);
+
+        var signalB = new Circle(220, Color.rgb(255, 162, 106, 0.15));
+        signalB.setTranslateX(width * 0.31);
+        signalB.setTranslateY(height * 0.22);
+        signalB.setBlendMode(BlendMode.SCREEN);
+
+        var signalAScale = new ScaleTransition(Duration.seconds(5.6), signalA);
+        signalAScale.setFromX(0.93);
+        signalAScale.setFromY(0.93);
+        signalAScale.setToX(1.06);
+        signalAScale.setToY(1.06);
+        signalAScale.setAutoReverse(true);
+        signalAScale.setCycleCount(Animation.INDEFINITE);
+        signalAScale.setInterpolator(Interpolator.EASE_BOTH);
+        animations.add(signalAScale);
+
+        var signalAFade = new FadeTransition(Duration.seconds(5.2), signalA);
+        signalAFade.setFromValue(0.55);
+        signalAFade.setToValue(0.84);
+        signalAFade.setAutoReverse(true);
+        signalAFade.setCycleCount(Animation.INDEFINITE);
+        animations.add(signalAFade);
+
+        var signalBScale = new ScaleTransition(Duration.seconds(4.8), signalB);
+        signalBScale.setFromX(1.03);
+        signalBScale.setFromY(1.03);
+        signalBScale.setToX(0.94);
+        signalBScale.setToY(0.94);
+        signalBScale.setAutoReverse(true);
+        signalBScale.setCycleCount(Animation.INDEFINITE);
+        signalBScale.setInterpolator(Interpolator.EASE_BOTH);
+        animations.add(signalBScale);
+
+        var signalBFade = new FadeTransition(Duration.seconds(4.4), signalB);
+        signalBFade.setFromValue(0.45);
+        signalBFade.setToValue(0.70);
+        signalBFade.setAutoReverse(true);
+        signalBFade.setCycleCount(Animation.INDEFINITE);
+        animations.add(signalBFade);
+
+        var panelSurface = new Rectangle(cardWidth, cardHeight);
+        panelSurface.setArcWidth(24);
+        panelSurface.setArcHeight(24);
+        panelSurface.setFill(new LinearGradient(
+                0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.rgb(5, 14, 28, 0.92)),
+                new Stop(0.55, Color.rgb(8, 22, 40, 0.86)),
+                new Stop(1.0, Color.rgb(8, 19, 32, 0.92))
+        ));
+        panelSurface.setStroke(Color.rgb(161, 215, 255, 0.46));
+        panelSurface.setStrokeWidth(1.5);
+        panelSurface.setEffect(new DropShadow(22, Color.rgb(0, 0, 0, 0.55)));
+
+        var badge = new Text("SECURE ACCESS TERMINAL");
+        badge.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, compactLayout ? 16 : 18));
+        badge.setFill(Color.rgb(150, 214, 255));
+
+        var title = new Text("Mission Login");
+        title.setFont(Font.font("Cinzel", FontWeight.BOLD, compactLayout ? 40 : 46));
+        title.setFill(Color.rgb(245, 220, 172));
+
+        var subtitle = new Text(
+                "Sign in to unlock The Curator command deck.\n" +
+                "Authentication is bypassed in this build and will be wired later."
+        );
+        subtitle.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, compactLayout ? 20 : 22));
+        subtitle.setFill(Color.rgb(189, 220, 247));
+        subtitle.setTextAlignment(TextAlignment.LEFT);
+        subtitle.setWrappingWidth(fieldWidth);
+
+        String existingAlias = GameSession.getOperatorAlias();
+        var aliasField = new TextField("Operator".equals(existingAlias) ? "" : existingAlias);
+        aliasField.setPromptText("Operator alias");
+        configureLoginField(aliasField, fieldWidth);
+
+        var passwordField = new PasswordField();
+        passwordField.setPromptText("Password");
+        configureLoginField(passwordField, fieldWidth);
+
+        var statusText = new Text("Temporary mode: press Enter Museum to continue.");
+        statusText.setFont(Font.font("Bodoni MT", FontWeight.SEMI_BOLD, compactLayout ? 18 : 20));
+        statusText.setFill(Color.rgb(133, 225, 174));
+        statusText.setWrappingWidth(fieldWidth);
+
+        var enterButton = createLoginButton("Enter Museum", fieldWidth);
+        enterButton.setDefaultButton(true);
+        enterButton.setOnAction(e -> startLoginFlow(aliasField, passwordField, statusText, enterButton));
+
+        aliasField.setOnAction(e -> passwordField.requestFocus());
+        passwordField.setOnAction(e -> enterButton.fire());
+
+        var leftPane = new VBox(12, badge, title, subtitle, aliasField, passwordField, enterButton, statusText);
+        leftPane.setAlignment(Pos.CENTER_LEFT);
+        leftPane.setPadding(new Insets(6, 4, 6, 8));
+        leftPane.setPrefWidth(leftPaneWidth);
+        leftPane.setFillWidth(false);
+
+        var operative = new ImageView(new Image(THIEF_PATH));
+        operative.setFitHeight(240);
+        operative.setPreserveRatio(true);
+        operative.setSmooth(true);
+
+        var operativeShadow = new Ellipse(96, 26);
+        operativeShadow.setFill(Color.rgb(0, 0, 0, 0.32));
+        operativeShadow.setTranslateY(108);
+        operativeShadow.setBlendMode(BlendMode.MULTIPLY);
+
+        var operativeFloat = new TranslateTransition(Duration.seconds(2.7), operative);
+        operativeFloat.setFromY(0);
+        operativeFloat.setToY(-11);
+        operativeFloat.setAutoReverse(true);
+        operativeFloat.setCycleCount(Animation.INDEFINITE);
+        operativeFloat.setInterpolator(Interpolator.EASE_BOTH);
+        animations.add(operativeFloat);
+
+        var operativeSway = new RotateTransition(Duration.seconds(4.5), operative);
+        operativeSway.setFromAngle(-1.5);
+        operativeSway.setToAngle(1.5);
+        operativeSway.setAutoReverse(true);
+        operativeSway.setCycleCount(Animation.INDEFINITE);
+        operativeSway.setInterpolator(Interpolator.EASE_BOTH);
+        animations.add(operativeSway);
+
+        var shadowPulse = new ScaleTransition(Duration.seconds(2.7), operativeShadow);
+        shadowPulse.setFromX(1.0);
+        shadowPulse.setToX(0.88);
+        shadowPulse.setAutoReverse(true);
+        shadowPulse.setCycleCount(Animation.INDEFINITE);
+        shadowPulse.setInterpolator(Interpolator.EASE_BOTH);
+        animations.add(shadowPulse);
+
+        var operativePane = new StackPane(operativeShadow, operative);
+        operativePane.setPrefSize(cardWidth - leftPaneWidth - 60, cardHeight - 80);
+
+        var body = new HBox(compactLayout ? 0 : 28);
+        body.setAlignment(Pos.CENTER);
+        body.setPadding(compactLayout ? new Insets(24, 24, 24, 24) : new Insets(30, 34, 30, 34));
+        if (compactLayout) {
+            body.getChildren().add(leftPane);
+        } else {
+            body.getChildren().addAll(leftPane, operativePane);
+        }
+        body.setMaxSize(cardWidth, cardHeight);
+        body.setPrefSize(cardWidth, cardHeight);
+        body.setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+
+        var card = new StackPane(panelSurface, body);
+        card.setOpacity(0);
+        card.setTranslateY(34);
+
+        var cardFade = new FadeTransition(Duration.seconds(0.7), card);
+        cardFade.setFromValue(0.0);
+        cardFade.setToValue(1.0);
+        cardFade.setInterpolator(Interpolator.EASE_OUT);
+        animations.add(cardFade);
+
+        var cardRise = new TranslateTransition(Duration.seconds(0.7), card);
+        cardRise.setFromY(34);
+        cardRise.setToY(0);
+        cardRise.setInterpolator(Interpolator.EASE_OUT);
+        animations.add(cardRise);
+
+        var overlay = new StackPane(dim, signalA, signalB, topGlow, card);
+        overlay.setPrefSize(width, height);
+        return overlay;
+    }
+
+    private void configureLoginField(TextField field, double width) {
+        field.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, 19));
+        field.setMinWidth(width);
+        field.setPrefWidth(width);
+        field.setMaxWidth(width);
+        field.setPrefHeight(44);
+        field.setStyle("-fx-background-color: rgba(7,20,34,0.86);"
+                + "-fx-text-fill: #efd9ad; -fx-prompt-text-fill: rgba(203,224,245,0.56);"
+                + "-fx-border-color: rgba(148,205,253,0.55); -fx-border-radius: 9;"
+                + "-fx-background-radius: 9;");
+    }
+
+    private Button createLoginButton(String text, double width) {
+        var button = new Button(text);
+        button.setFont(Font.font("Cinzel", FontWeight.BOLD, 21));
+        button.setTextFill(Color.rgb(244, 227, 192));
+        button.setPrefWidth(width);
+        button.setPrefHeight(48);
+        button.setStyle("-fx-background-color: linear-gradient(to right, rgba(24,72,118,0.95), rgba(20,58,95,0.92));"
+                + "-fx-border-color: rgba(241,212,153,0.72); -fx-border-radius: 10; -fx-background-radius: 10;");
+        applyHoverMotion(button, 1.04);
+        return button;
+    }
+
+    private void startLoginFlow(TextField aliasField, PasswordField passwordField, Text statusText, Button enterButton) {
+        GameSession.setOperatorAlias(aliasField.getText());
+        GameSession.setLoggedIn(true);
+
+        aliasField.setDisable(true);
+        passwordField.setDisable(true);
+        enterButton.setDisable(true);
+
+        statusText.setText("Identity accepted. Opening command deck...");
+        statusText.setFill(Color.rgb(125, 231, 183));
+
+        revealMenuFromLogin();
+    }
+
+    private void revealMenuFromLogin() {
+        if (loginOverlay == null) {
+            return;
+        }
+
+        menuLayer.setVisible(true);
+        menuLayer.setDisable(false);
+
+        var menuFade = new FadeTransition(Duration.seconds(0.62), menuLayer);
+        menuFade.setFromValue(menuLayer.getOpacity());
+        menuFade.setToValue(1.0);
+        menuFade.setInterpolator(Interpolator.EASE_OUT);
+
+        var menuRise = new TranslateTransition(Duration.seconds(0.62), menuLayer);
+        menuRise.setFromY(menuLayer.getTranslateY());
+        menuRise.setToY(0);
+        menuRise.setInterpolator(Interpolator.EASE_OUT);
+
+        var overlayFade = new FadeTransition(Duration.seconds(0.5), loginOverlay);
+        overlayFade.setFromValue(1.0);
+        overlayFade.setToValue(0.0);
+        overlayFade.setInterpolator(Interpolator.EASE_IN);
+        overlayFade.setOnFinished(e -> {
+            getContentRoot().getChildren().remove(loginOverlay);
+            loginOverlay = null;
+            showHomePanel();
+        });
+
+        menuFade.play();
+        menuRise.play();
+        overlayFade.play();
+    }
+
+    private double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private Node createTopHeader(int width) {
         var topBar = new Rectangle(width, 102, Color.rgb(4, 8, 14, 0.72));
         topBar.setStroke(Color.rgb(120, 185, 255, 0.22));
@@ -283,27 +583,67 @@ public class PremiumMainMenu extends FXGLMenu {
     }
 
     private Button createNavButton(String text, Runnable action) {
+        String baseStyle = "-fx-background-color: linear-gradient(to right, rgba(10,24,40,0.75), rgba(10,24,40,0.45));"
+                + "-fx-border-color: rgba(185,215,245,0.35); -fx-border-radius: 10; -fx-background-radius: 10;";
+        String hoverStyle = "-fx-background-color: linear-gradient(to right, rgba(20,45,72,0.88), rgba(16,38,61,0.62));"
+                + "-fx-border-color: rgba(233,201,138,0.75); -fx-border-radius: 10; -fx-background-radius: 10;";
+
         var button = new Button(text);
         button.setFont(Font.font("Cinzel", FontWeight.BOLD, 20));
         button.setTextFill(Color.rgb(235, 215, 176));
         button.setAlignment(Pos.CENTER_LEFT);
         button.setPrefWidth(264);
         button.setPrefHeight(42);
-        button.setStyle("-fx-background-color: linear-gradient(to right, rgba(10,24,40,0.75), rgba(10,24,40,0.45));"
-                + "-fx-border-color: rgba(185,215,245,0.35); -fx-border-radius: 10; -fx-background-radius: 10;");
+        button.setStyle(baseStyle);
         button.setOnAction(e -> action.run());
+        button.setOnMouseEntered(e -> button.setStyle(hoverStyle));
+        button.setOnMouseExited(e -> button.setStyle(baseStyle));
+        applyHoverMotion(button, 1.03);
         return button;
     }
 
     private Button createPanelButton(String text) {
+        String baseStyle = "-fx-background-color: linear-gradient(to right, rgba(16,38,66,0.80), rgba(12,30,52,0.52));"
+                + "-fx-border-color: rgba(211,189,131,0.52); -fx-border-radius: 10; -fx-background-radius: 10;";
+        String hoverStyle = "-fx-background-color: linear-gradient(to right, rgba(28,62,102,0.90), rgba(18,44,75,0.67));"
+                + "-fx-border-color: rgba(243,214,151,0.82); -fx-border-radius: 10; -fx-background-radius: 10;";
+
         var button = new Button(text);
         button.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, 20));
         button.setTextFill(Color.rgb(238, 223, 196));
         button.setPrefWidth(320);
         button.setPrefHeight(42);
-        button.setStyle("-fx-background-color: linear-gradient(to right, rgba(16,38,66,0.80), rgba(12,30,52,0.52));"
-                + "-fx-border-color: rgba(211,189,131,0.52); -fx-border-radius: 10; -fx-background-radius: 10;");
+        button.setStyle(baseStyle);
+        button.setOnMouseEntered(e -> button.setStyle(hoverStyle));
+        button.setOnMouseExited(e -> button.setStyle(baseStyle));
+        applyHoverMotion(button, 1.025);
         return button;
+    }
+
+    private void applyHoverMotion(Button button, double targetScale) {
+        var existingEnter = button.getOnMouseEntered();
+        button.setOnMouseEntered(e -> {
+            if (existingEnter != null) {
+                existingEnter.handle(e);
+            }
+            var scaleUp = new ScaleTransition(Duration.seconds(0.16), button);
+            scaleUp.setToX(targetScale);
+            scaleUp.setToY(targetScale);
+            scaleUp.setInterpolator(Interpolator.EASE_OUT);
+            scaleUp.play();
+        });
+
+        var existingExit = button.getOnMouseExited();
+        button.setOnMouseExited(e -> {
+            if (existingExit != null) {
+                existingExit.handle(e);
+            }
+            var scaleDown = new ScaleTransition(Duration.seconds(0.16), button);
+            scaleDown.setToX(1.0);
+            scaleDown.setToY(1.0);
+            scaleDown.setInterpolator(Interpolator.EASE_OUT);
+            scaleDown.play();
+        });
     }
 
     private void swapContent(Node node) {
@@ -319,8 +659,8 @@ public class PremiumMainMenu extends FXGLMenu {
         panelTitle.setText("Mission Brief");
 
         var intro = new Text(
-                "Infiltrate the museum, solve Heart API puzzles, steal high-value art,\n" +
-                "and escape before security locks you in."
+                "Welcome, " + GameSession.getOperatorAlias() + ". Infiltrate the museum, solve Heart API puzzles,\n"
+                        + "steal high-value art, and escape before security locks you in."
         );
         intro.setFill(Color.rgb(189, 220, 250, 0.95));
         intro.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, 23));
@@ -411,10 +751,11 @@ public class PremiumMainMenu extends FXGLMenu {
         panelTitle.setText("Controls");
 
         var controls = new Text(
-                "W / A / S / D  : Move Agent\n" +
-                "ESC            : Pause / Menu\n" +
-                "Touch Artwork  : Trigger Heart Puzzle\n\n" +
-                "Tip: avoid both guards and their torch cones."
+                "W / A / S / D  : Move Agent\n"
+                        + "ESC            : Pause / Menu\n"
+                        + "F11            : Toggle Full Screen\n"
+                        + "Touch Artwork  : Trigger Heart Puzzle\n\n"
+                        + "Tip: avoid both guards and their torch cones."
         );
         controls.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, 24));
         controls.setFill(Color.rgb(189, 221, 252, 0.96));
@@ -457,12 +798,12 @@ public class PremiumMainMenu extends FXGLMenu {
         panelTitle.setText("About The Curator");
 
         var about = new Text(
-                "University Assignment Build\n\n" +
-                "- Event-driven gameplay with FXGL\n" +
-                "- Interoperability with Art Institute API\n" +
-                "- Heart API puzzle challenge before each theft\n" +
-                "- Session library for recovered artworks\n" +
-                "- Difficulty-scaled missions (Easy / Medium / Hard)"
+                "University Assignment Build\n\n"
+                        + "- Event-driven gameplay with FXGL\n"
+                        + "- Interoperability with Art Institute API\n"
+                        + "- Heart API puzzle challenge before each theft\n"
+                        + "- Session library for recovered artworks\n"
+                        + "- Difficulty-scaled missions (Easy / Medium / Hard)"
         );
         about.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, 22));
         about.setFill(Color.rgb(186, 219, 252, 0.96));
