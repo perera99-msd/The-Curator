@@ -65,55 +65,81 @@ _Source: `com.curator.domain.GameMode`._
 
 ## 🧱 Current Project Structure
 
+> The tree below mirrors the repository layout as it appears on GitHub (root + key `src/` paths).
+
+**Quick view (compact):**
+```text
+The-Curator/
+├─ .env.local.example
+├─ .gitignore
+├─ LICENSE
+├─ README.md
+├─ pom.xml
+├─ .idea/                # IDE settings (optional)
+└─ src/
+   └─ main/
+      ├─ java/com/curator/{app,config,domain,gameplay,services,state,ui}
+      └─ resources/
+         ├─ firebase.properties
+         └─ assets/
+            ├─ textures/
+            └─ screenshots/
+```
+
 <details>
   <summary><b>Click to expand (full tree)</b></summary>
 
 ```text
-TheCurator/
+The-Curator/
+├── .env.local.example
+├── .gitignore
+├── .idea/
 ├── LICENSE
 ├── README.md
 ├── pom.xml
-├── system/
-│   └── fxgl.bundle
-├── logs/
 └── src/
     └── main/
-        ├── java/com/curator/
-        │   ├── app/
-        │   │   ├── Launcher.java
-        │   │   ├── ServiceRegistry.java
-        │   │   └── TheCuratorApp.java
-        │   ├── config/
-        │   │   └── FirebaseConfig.java
-        │   ├── domain/
-        │   │   ├── ArtData.java
-        │   │   ├── AuthSession.java
-        │   │   ├── GameMode.java
-        │   │   ├── HeartPuzzle.java
-        │   │   ├── HeistReport.java
-        │   │   ├── StolenArtEntry.java
-        │   │   ├── StolenArtRecord.java
-        │   │   └── UserProfile.java
-        │   ├── gameplay/
-        │   │   ├── EntityType.java
-        │   │   ├── MuseumFactory.java
-        │   │   └── components/PatrolComponent.java
-        │   ├── services/
-        │   │   ├── AuthService.java
-        │   │   ├── ArtProvider.java
-        │   │   ├── HeistReportRepository.java
-        │   │   ├── PuzzleProvider.java
-        │   │   ├── StolenArtRepository.java
-        │   │   ├── UserProfileRepository.java
-        │   │   └── impl/
-        │   ├── state/
-        │   │   └── GameSession.java
-        │   └── ui/
-        │       ├── PremiumMainMenu.java
-        │       ├── HackingSubScene.java
-        │       ├── game/GameHud.java
-        │       ├── library/LibraryPanel.java
-        │       └── panels/
+        ├── java/
+        │   └── com/
+        │       └── curator/
+        │           ├── app/
+        │           │   ├── Launcher.java
+        │           │   ├── ServiceRegistry.java
+        │           │   └── TheCuratorApp.java
+        │           ├── config/
+        │           │   └── FirebaseConfig.java
+        │           ├── domain/
+        │           │   ├── ArtData.java
+        │           │   ├── AuthSession.java
+        │           │   ├── GameMode.java
+        │           │   ├── HeartPuzzle.java
+        │           │   ├── HeistReport.java
+        │           │   ├── StolenArtEntry.java
+        │           │   ├── StolenArtRecord.java
+        │           │   └── UserProfile.java
+        │           ├── gameplay/
+        │           │   ├── EntityType.java
+        │           │   ├── MuseumFactory.java
+        │           │   └── components/
+        │           │       └── PatrolComponent.java
+        │           ├── services/
+        │           │   ├── AuthService.java
+        │           │   ├── ArtProvider.java
+        │           │   ├── HeistReportRepository.java
+        │           │   ├── PuzzleProvider.java
+        │           │   ├── StolenArtRepository.java
+        │           │   ├── UserProfileRepository.java
+        │           │   └── impl/
+        │           ├── state/
+        │           │   └── GameSession.java
+        │           └── ui/
+        │               ├── PremiumMainMenu.java
+        │               ├── HackingSubScene.java
+        │               ├── game/
+        │               │   └── GameHud.java
+        │               ├── library/
+        │               │   └── LibraryPanel.java
+        │               └── panels/
         └── resources/
             ├── firebase.properties
             └── assets/
@@ -128,31 +154,37 @@ TheCurator/
 
 </details>
 
-**Quick view (compact):**
-```text
-TheCurator/
-├─ pom.xml, README.md, LICENSE
-├─ src/main/java/com/curator/{app,config,domain,gameplay,services,state,ui}
-└─ src/main/resources/assets/{textures,screenshots}
-```
-
 ---
 
 ## 🖼️ Screenshots
 
-<table>
-  <tr>
-    <td><img src="src/main/resources/assets/screenshots/LoginPage.png" alt="Login" width="260"/></td>
-    <td><img src="src/main/resources/assets/screenshots/MainMenu.png" alt="Main Menu" width="260"/></td>
-  </tr>
-  <tr>
-    <td><img src="src/main/resources/assets/screenshots/MainGamePlay.png" alt="Gameplay" width="260"/></td>
-    <td><img src="src/main/resources/assets/screenshots/HearAPIPopUp.png" alt="Puzzle Popup" width="260"/></td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><img src="src/main/resources/assets/screenshots/StolenArts.png" alt="Stolen Arts" width="520"/></td>
-  </tr>
-</table>
+<!--
+  Notes:
+  - Use relative paths so screenshots render on GitHub.
+  - Keep widths consistent for a cleaner collage.
+-->
+
+<p align="center">
+  <img src="src/main/resources/assets/screenshots/MainMenu.png" alt="Main Menu" width="300" />
+  <img src="src/main/resources/assets/screenshots/LoginPage.png" alt="Login" width="300" />
+  <img src="src/main/resources/assets/screenshots/MainGamePlay.png" alt="Gameplay" width="300" />
+</p>
+
+<p align="center">
+  <img src="src/main/resources/assets/screenshots/HearAPIPopUp.png" alt="Puzzle Popup" width="455" />
+  <img src="src/main/resources/assets/screenshots/StolenArts.png" alt="Stolen Arts" width="455" />
+</p>
+
+<details>
+  <summary><b>Image captions</b></summary>
+
+- **Main Menu** — start a mission and choose difficulty.
+- **Login** — authentication screen.
+- **Gameplay** — top-down stealth navigation with guards.
+- **Puzzle Popup** — hacking / puzzle sub-scene.
+- **Stolen Arts** — collected artwork dashboard.
+
+</details>
 
 ---
 
