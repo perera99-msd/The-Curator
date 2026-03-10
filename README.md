@@ -65,6 +65,9 @@ _Source: `com.curator.domain.GameMode`._
 
 ## 🧱 Current Project Structure
 
+<details>
+  <summary><b>Click to expand (full tree)</b></summary>
+
 ```text
 TheCurator/
 ├── LICENSE
@@ -123,24 +126,33 @@ TheCurator/
                     └── StolenArts.png
 ```
 
+</details>
+
+**Quick view (compact):**
+```text
+TheCurator/
+├─ pom.xml, README.md, LICENSE
+├─ src/main/java/com/curator/{app,config,domain,gameplay,services,state,ui}
+└─ src/main/resources/assets/{textures,screenshots}
+```
+
 ---
 
 ## 🖼️ Screenshots
 
-### 1) 🔐 Login
-![Login](src/main/resources/assets/screenshots/LoginPage.png)
-
-### 2) 🧭 Main Menu
-![Main Menu](src/main/resources/assets/screenshots/MainMenu.png)
-
-### 3) 🕹️ Museum Gameplay
-![Gameplay](src/main/resources/assets/screenshots/MainGamePlay.png)
-
-### 4) 🧩 Puzzle Interaction Popup
-![Puzzle Popup](src/main/resources/assets/screenshots/HearAPIPopUp.png)
-
-### 5) 🏆 Stolen Art Results / Library
-![Stolen Arts](src/main/resources/assets/screenshots/StolenArts.png)
+<table>
+  <tr>
+    <td><img src="src/main/resources/assets/screenshots/LoginPage.png" alt="Login" width="260"/></td>
+    <td><img src="src/main/resources/assets/screenshots/MainMenu.png" alt="Main Menu" width="260"/></td>
+  </tr>
+  <tr>
+    <td><img src="src/main/resources/assets/screenshots/MainGamePlay.png" alt="Gameplay" width="260"/></td>
+    <td><img src="src/main/resources/assets/screenshots/HearAPIPopUp.png" alt="Puzzle Popup" width="260"/></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="src/main/resources/assets/screenshots/StolenArts.png" alt="Stolen Arts" width="520"/></td>
+  </tr>
+</table>
 
 ---
 
