@@ -42,3 +42,8 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Local secrets ###
+.env.local
+.env
+src/main/resources/firebase.local.properties
