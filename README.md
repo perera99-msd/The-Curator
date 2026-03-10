@@ -159,32 +159,25 @@ The-Curator/
 ## 🖼️ Screenshots
 
 <!--
-  Notes:
-  - Use relative paths so screenshots render on GitHub.
-  - Keep widths consistent for a cleaner collage.
+  Collage layout requested:
+  top:    2 images (50% / 50%)
+  middle: 1 image (100%)
+  bottom: 2 images (50% / 50%)
 -->
 
 <p align="center">
-  <img src="src/main/resources/assets/screenshots/MainMenu.png" alt="Main Menu" width="300" />
-  <img src="src/main/resources/assets/screenshots/LoginPage.png" alt="Login" width="300" />
-  <img src="src/main/resources/assets/screenshots/MainGamePlay.png" alt="Gameplay" width="300" />
+  <img src="src/main/resources/assets/screenshots/LoginPage.png" alt="Login" width="49%" />
+  <img src="src/main/resources/assets/screenshots/MainMenu.png" alt="Main Menu" width="49%" />
 </p>
 
 <p align="center">
-  <img src="src/main/resources/assets/screenshots/HearAPIPopUp.png" alt="Puzzle Popup" width="455" />
-  <img src="src/main/resources/assets/screenshots/StolenArts.png" alt="Stolen Arts" width="455" />
+  <img src="src/main/resources/assets/screenshots/MainGamePlay.png" alt="Gameplay" width="99%" />
 </p>
 
-<details>
-  <summary><b>Image captions</b></summary>
-
-- **Main Menu** — start a mission and choose difficulty.
-- **Login** — authentication screen.
-- **Gameplay** — top-down stealth navigation with guards.
-- **Puzzle Popup** — hacking / puzzle sub-scene.
-- **Stolen Arts** — collected artwork dashboard.
-
-</details>
+<p align="center">
+  <img src="src/main/resources/assets/screenshots/StolenArts.png" alt="Library / Stolen Arts" width="49%" />
+  <img src="src/main/resources/assets/screenshots/HearAPIPopUp.png" alt="Heart API / Puzzle Popup" width="49%" />
+</p>
 
 ---
 
