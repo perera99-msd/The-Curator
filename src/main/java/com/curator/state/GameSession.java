@@ -1,7 +1,8 @@
 package com.curator.state;
 
-import com.curator.model.GameMode;
-import com.curator.model.StolenArtRecord;
+import com.curator.domain.AuthSession;
+import com.curator.domain.GameMode;
+import com.curator.domain.StolenArtRecord;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -10,7 +11,8 @@ public final class GameSession {
 
     private static GameMode selectedMode = GameMode.MEDIUM;
     private static boolean showGuardCones = true;
-    private static boolean loggedIn;
+    // Virtual identity state for the current play session (Firebase user + token).
+    private static AuthSession authSession;
     private static String operatorAlias = "Operator";
 
     private static final List<StolenArtRecord> vault = new ArrayList<>();
@@ -36,11 +38,19 @@ public final class GameSession {
     }
 
     public static synchronized boolean isLoggedIn() {
-        return loggedIn;
+        return authSession != null;
     }
 
-    public static synchronized void setLoggedIn(boolean loggedInValue) {
-        loggedIn = loggedInValue;
+    public static synchronized AuthSession getAuthSession() {
+        return authSession;
+    }
+
+    public static synchronized void setAuthSession(AuthSession session) {
+        authSession = session;
+    }
+
+    public static synchronized void clearAuthSession() {
+        authSession = null;
     }
 
     public static synchronized String getOperatorAlias() {
@@ -68,6 +78,10 @@ public final class GameSession {
 
     public static synchronized int getRunLootValue() {
         return runLoot.stream().mapToInt(StolenArtRecord::value).sum();
+    }
+
+    public static synchronized List<StolenArtRecord> getRunLootSnapshot() {
+        return new ArrayList<>(runLoot);
     }
 
     public static synchronized int commitRunLoot() {

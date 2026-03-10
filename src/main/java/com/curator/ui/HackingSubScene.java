@@ -4,8 +4,9 @@ import com.almasb.fxgl.dsl.FXGL;
 import com.almasb.fxgl.scene.SubScene;
 import com.almasb.fxgl.time.TimerAction;
 import javafx.animation.PauseTransition;
-import com.curator.model.GameMode;
-import com.curator.services.HeartService;
+import com.curator.domain.GameMode;
+import com.curator.domain.HeartPuzzle;
+import com.curator.services.PuzzleProvider;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -25,7 +26,7 @@ import java.util.function.Consumer;
 
 public class HackingSubScene extends SubScene {
 
-    private final HeartService heartService;
+    private final PuzzleProvider puzzleProvider;
     private final GameMode mode;
     private final Consumer<Boolean> onComplete;
 
@@ -37,13 +38,13 @@ public class HackingSubScene extends SubScene {
     private final ImageView puzzleImage = new ImageView();
 
     private TimerAction timerAction;
-    private HeartService.HeartPuzzle puzzle;
+    private HeartPuzzle puzzle;
     private int secondsLeft;
     private int attemptsLeft;
     private boolean completed;
 
-    public HackingSubScene(HeartService heartService, GameMode mode, Consumer<Boolean> onComplete) {
-        this.heartService = heartService;
+    public HackingSubScene(PuzzleProvider puzzleProvider, GameMode mode, Consumer<Boolean> onComplete) {
+        this.puzzleProvider = puzzleProvider;
         this.mode = mode;
         this.onComplete = onComplete;
         buildUi();
@@ -132,7 +133,7 @@ public class HackingSubScene extends SubScene {
     }
 
     private void loadPuzzle() {
-        heartService.fetchPuzzle().thenAcceptAsync(result -> FXGL.getExecutor().startAsyncFX(() -> {
+        puzzleProvider.fetchPuzzle().thenAcceptAsync(result -> FXGL.getExecutor().startAsyncFX(() -> {
             if (completed) {
                 return;
             }
@@ -156,7 +157,7 @@ public class HackingSubScene extends SubScene {
             return;
         }
 
-        if (heartService.isCorrect(puzzle, answerInput.getText())) {
+        if (puzzleProvider.isCorrect(puzzle, answerInput.getText())) {
             finish(true, "ACCESS GRANTED. ASSET SECURED.");
             return;
         }

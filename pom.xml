@@ -44,7 +44,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>com.curator.Launcher</mainClass>
+                    <mainClass>com.curator.app.Launcher</mainClass>
                 </configuration>
             </plugin>
         </plugins>

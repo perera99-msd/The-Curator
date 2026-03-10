@@ -2,9 +2,14 @@ package com.curator.ui;
 
 import com.almasb.fxgl.app.scene.FXGLMenu;
 import com.almasb.fxgl.app.scene.MenuType;
-import com.curator.model.GameMode;
-import com.curator.model.StolenArtRecord;
+import com.curator.domain.AuthSession;
+import com.curator.domain.GameMode;
+import com.curator.domain.UserProfile;
+import com.curator.services.AuthService;
+import com.curator.services.StolenArtRepository;
+import com.curator.services.UserProfileRepository;
 import com.curator.state.GameSession;
+import com.curator.ui.library.LibraryPanel;
 import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
@@ -14,9 +19,12 @@ import javafx.animation.TranslateTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ListView;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Control;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.effect.BlendMode;
@@ -25,6 +33,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -44,22 +53,46 @@ import javafx.util.Duration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-public class PremiumMainMenu extends FXGLMenu {
+import com.curator.ui.panels.*;
 
-    private static final String MENU_BG_PATH = "/assests/menu/menu_bg.png";
-    private static final String THIEF_PATH = "/assests/menu/thief.png";
+public class PremiumMainMenu extends FXGLMenu implements MenuNavigator {
+
+    private static final String MENU_BG_PATH = "/assets/textures/menu_bg.png";
+    private static final String THIEF_PATH = "/assets/textures/thief.png";
+    private static final String GOOGLE_LOGO_PATH = "/assets/textures/Google__G__logo.svg.png";
+
+    private enum AuthMode {
+        LOGIN,
+        REGISTER
+    }
+
+    private record AuthOutcome(AuthSession session, String displayName) {
+    }
 
     private final List<Animation> animations = new ArrayList<>();
     private final Pane menuLayer = new Pane();
     private final Pane contentPanel = new Pane();
     private final Text panelTitle = new Text();
 
-    private StackPane loginOverlay;
+    private final AuthService authService;
+    private final UserProfileRepository profileRepository;
+    private final StolenArtRepository stolenArtRepository;
+    private StackPane authLayer;
+    private StackPane loginPage;
+    private StackPane registerPage;
+    private Runnable pendingAction;
     private GameMode selectedMode = GameSession.getSelectedMode();
+    private boolean mainMenuBuilt;
 
-    public PremiumMainMenu() {
+    public PremiumMainMenu(AuthService authService,
+                           UserProfileRepository profileRepository,
+                           StolenArtRepository stolenArtRepository) {
         super(MenuType.MAIN_MENU);
+        this.authService = authService;
+        this.profileRepository = profileRepository;
+        this.stolenArtRepository = stolenArtRepository;
         buildMenu();
     }
 
@@ -78,33 +111,82 @@ public class PremiumMainMenu extends FXGLMenu {
         int height = getAppHeight();
 
         var root = getContentRoot();
+        root.getChildren().clear();
         root.getChildren().add(createBackground(width, height));
 
+        menuLayer.getChildren().clear();
         menuLayer.setPrefSize(width, height);
-        menuLayer.getChildren().addAll(
+
+        authLayer = createAuthLayer(width, height);
+
+        root.getChildren().addAll(menuLayer, authLayer);
+
+        if (GameSession.isLoggedIn()) {
+            showMainMenu(false);
+        } else {
+            showAuthScreen(AuthMode.LOGIN, false);
+        }
+    }
+
+    private void buildMainMenuLayer(int width, int height) {
+        if (mainMenuBuilt) {
+            return;
+        }
+        menuLayer.getChildren().setAll(
                 createTopHeader(width),
                 createNavigationPanel(height),
                 createContentSurface(width, height)
         );
-        root.getChildren().add(menuLayer);
-
         showHomePanel();
+        mainMenuBuilt = true;
+    }
 
-        if (GameSession.isLoggedIn()) {
-            menuLayer.setVisible(true);
-            menuLayer.setOpacity(1.0);
-            menuLayer.setDisable(false);
-            menuLayer.setTranslateY(0);
-            return;
+    private void showMainMenu(boolean animate) {
+        buildMainMenuLayer(getAppWidth(), getAppHeight());
+        menuLayer.setVisible(true);
+        menuLayer.setDisable(false);
+        menuLayer.setTranslateY(0);
+
+        if (authLayer != null) {
+            authLayer.setVisible(false);
+            authLayer.setDisable(true);
+            authLayer.setOpacity(1.0);
         }
 
-        menuLayer.setVisible(false);
-        menuLayer.setOpacity(0.0);
-        menuLayer.setDisable(true);
-        menuLayer.setTranslateY(18);
+        if (animate) {
+            menuLayer.setOpacity(0.0);
+            var fade = new FadeTransition(Duration.seconds(0.5), menuLayer);
+            fade.setFromValue(0.0);
+            fade.setToValue(1.0);
+            fade.setInterpolator(Interpolator.EASE_OUT);
+            fade.play();
+        } else {
+            menuLayer.setOpacity(1.0);
+        }
+    }
 
-        loginOverlay = createLoginOverlay(width, height);
-        root.getChildren().add(loginOverlay);
+    private void showAuthScreen(AuthMode mode, boolean animate) {
+        if (authLayer == null) {
+            return;
+        }
+        setNodeVisible(loginPage, mode == AuthMode.LOGIN);
+        setNodeVisible(registerPage, mode == AuthMode.REGISTER);
+
+        authLayer.setVisible(true);
+        authLayer.setDisable(false);
+        authLayer.setOpacity(1.0);
+
+        menuLayer.setVisible(false);
+        menuLayer.setDisable(true);
+
+        if (animate) {
+            authLayer.setOpacity(0.0);
+            var fade = new FadeTransition(Duration.seconds(0.35), authLayer);
+            fade.setFromValue(0.0);
+            fade.setToValue(1.0);
+            fade.setInterpolator(Interpolator.EASE_OUT);
+            fade.play();
+        }
     }
 
     private Node createBackground(int width, int height) {
@@ -231,44 +313,59 @@ public class PremiumMainMenu extends FXGLMenu {
         return background;
     }
 
-    private StackPane createLoginOverlay(int width, int height) {
-        double cardHorizontalMargin = 32;
-        double maxCardWidth = Math.max(520, width - (cardHorizontalMargin * 2));
-        double minCardWidth = Math.min(760, maxCardWidth);
-        double cardWidth = clamp(width * 0.74, minCardWidth, maxCardWidth);
+    private StackPane createAuthLayer(int width, int height) {
+        var layer = new StackPane();
+        layer.setPrefSize(width, height);
 
-        double cardVerticalMargin = 28;
-        double maxCardHeight = Math.max(340, height - (cardVerticalMargin * 2));
-        double minCardHeight = Math.min(410, maxCardHeight);
-        double cardHeight = clamp(height * 0.60, minCardHeight, maxCardHeight);
+        loginPage = createAuthPage(width, height, AuthMode.LOGIN);
+        registerPage = createAuthPage(width, height, AuthMode.REGISTER);
 
-        boolean compactLayout = cardWidth < 820 || height < 650;
-        double leftPaneWidth = compactLayout ? cardWidth - 56 : cardWidth * 0.62;
-        double fieldWidth = clamp(leftPaneWidth - 48, 260, 520);
+        setNodeVisible(registerPage, false);
 
-        var dim = new Rectangle(width, height, Color.rgb(2, 8, 16, 0.82));
+        layer.getChildren().addAll(loginPage, registerPage);
+        return layer;
+    }
+
+    private StackPane createAuthPage(int width, int height, AuthMode mode) {
+        double horizontalMargin = 48;
+        double maxCardWidth = Math.max(640, width - (horizontalMargin * 2));
+        double minCardWidth = Math.min(660, maxCardWidth);
+        double cardWidth = clamp(width * 0.82, minCardWidth, Math.min(980, maxCardWidth));
+
+        double verticalMargin = 48;
+        double maxCardHeight = Math.max(520, height - (verticalMargin * 2));
+        double minCardHeight = Math.min(540, maxCardHeight);
+        double cardHeight = clamp(height * 0.80, minCardHeight, Math.min(660, maxCardHeight));
+
+        boolean compactLayout = width < 1120 || height < 720;
+        double leftPaneWidth = compactLayout ? cardWidth - 80 : cardWidth * 0.62;
+        double fieldWidth = clamp(leftPaneWidth - 32, 300, 520);
+        double verticalPadding = compactLayout ? 36 : 44;
+        double contentHeight = cardHeight - verticalPadding;
+
+        var dim = new Rectangle(width, height, Color.rgb(2, 8, 16, 0.72));
 
         var topGlow = new Rectangle(width, height);
         topGlow.setFill(new LinearGradient(
                 0.5, 0, 0.5, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0.0, Color.rgb(132, 214, 255, 0.14)),
-                new Stop(0.45, Color.rgb(132, 214, 255, 0.04)),
-                new Stop(1.0, Color.rgb(255, 154, 110, 0.09))
+                new Stop(0.0, Color.rgb(132, 214, 255, 0.12)),
+                new Stop(0.55, Color.rgb(132, 214, 255, 0.04)),
+                new Stop(1.0, Color.rgb(255, 154, 110, 0.08))
         ));
 
-        var signalA = new Circle(250, Color.rgb(106, 190, 255, 0.18));
-        signalA.setTranslateX(-width * 0.28);
+        var signalA = new Circle(260, Color.rgb(106, 190, 255, 0.16));
+        signalA.setTranslateX(-width * 0.27);
         signalA.setTranslateY(-height * 0.14);
         signalA.setBlendMode(BlendMode.SCREEN);
 
-        var signalB = new Circle(220, Color.rgb(255, 162, 106, 0.15));
-        signalB.setTranslateX(width * 0.31);
+        var signalB = new Circle(220, Color.rgb(255, 162, 106, 0.14));
+        signalB.setTranslateX(width * 0.30);
         signalB.setTranslateY(height * 0.22);
         signalB.setBlendMode(BlendMode.SCREEN);
 
         var signalAScale = new ScaleTransition(Duration.seconds(5.6), signalA);
-        signalAScale.setFromX(0.93);
-        signalAScale.setFromY(0.93);
+        signalAScale.setFromX(0.94);
+        signalAScale.setFromY(0.94);
         signalAScale.setToX(1.06);
         signalAScale.setToY(1.06);
         signalAScale.setAutoReverse(true);
@@ -278,7 +375,7 @@ public class PremiumMainMenu extends FXGLMenu {
 
         var signalAFade = new FadeTransition(Duration.seconds(5.2), signalA);
         signalAFade.setFromValue(0.55);
-        signalAFade.setToValue(0.84);
+        signalAFade.setToValue(0.82);
         signalAFade.setAutoReverse(true);
         signalAFade.setCycleCount(Animation.INDEFINITE);
         animations.add(signalAFade);
@@ -301,83 +398,89 @@ public class PremiumMainMenu extends FXGLMenu {
         animations.add(signalBFade);
 
         var panelSurface = new Rectangle(cardWidth, cardHeight);
-        panelSurface.setArcWidth(24);
-        panelSurface.setArcHeight(24);
+        panelSurface.setArcWidth(26);
+        panelSurface.setArcHeight(26);
         panelSurface.setFill(new LinearGradient(
                 0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0.0, Color.rgb(5, 14, 28, 0.92)),
-                new Stop(0.55, Color.rgb(8, 22, 40, 0.86)),
-                new Stop(1.0, Color.rgb(8, 19, 32, 0.92))
+                new Stop(0.0, Color.rgb(4, 13, 26, 0.94)),
+                new Stop(0.55, Color.rgb(8, 22, 40, 0.88)),
+                new Stop(1.0, Color.rgb(8, 19, 32, 0.94))
         ));
         panelSurface.setStroke(Color.rgb(161, 215, 255, 0.46));
         panelSurface.setStrokeWidth(1.5);
-        panelSurface.setEffect(new DropShadow(22, Color.rgb(0, 0, 0, 0.55)));
+        panelSurface.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.55)));
 
-        var badge = new Text("SECURE ACCESS TERMINAL");
-        badge.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, compactLayout ? 16 : 18));
-        badge.setFill(Color.rgb(150, 214, 255));
-
-        var title = new Text("Mission Login");
-        title.setFont(Font.font("Cinzel", FontWeight.BOLD, compactLayout ? 40 : 46));
-        title.setFill(Color.rgb(245, 220, 172));
-
-        var subtitle = new Text(
-                "Sign in to unlock The Curator command deck.\n" +
-                "Authentication is bypassed in this build and will be wired later."
-        );
-        subtitle.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, compactLayout ? 20 : 22));
-        subtitle.setFill(Color.rgb(189, 220, 247));
-        subtitle.setTextAlignment(TextAlignment.LEFT);
-        subtitle.setWrappingWidth(fieldWidth);
-
+        double formSpacing = compactLayout ? 8 : 10;
         String existingAlias = GameSession.getOperatorAlias();
-        var aliasField = new TextField("Operator".equals(existingAlias) ? "" : existingAlias);
-        aliasField.setPromptText("Operator alias");
-        configureLoginField(aliasField, fieldWidth);
 
-        var passwordField = new PasswordField();
-        passwordField.setPromptText("Password");
-        configureLoginField(passwordField, fieldWidth);
+        var form = (mode == AuthMode.LOGIN)
+                ? buildLoginForm(compactLayout, leftPaneWidth, fieldWidth, formSpacing)
+                : buildRegisterForm(compactLayout, leftPaneWidth, fieldWidth, formSpacing, existingAlias);
 
-        var statusText = new Text("Temporary mode: press Enter Museum to continue.");
-        statusText.setFont(Font.font("Bodoni MT", FontWeight.SEMI_BOLD, compactLayout ? 18 : 20));
-        statusText.setFill(Color.rgb(133, 225, 174));
-        statusText.setWrappingWidth(fieldWidth);
+        var formContainer = new StackPane(form);
+        formContainer.setAlignment(Pos.TOP_LEFT);
+        formContainer.setPrefWidth(leftPaneWidth);
+        formContainer.setMaxWidth(leftPaneWidth);
+        formContainer.setPrefHeight(contentHeight);
+        formContainer.setMaxHeight(contentHeight);
 
-        var enterButton = createLoginButton("Enter Museum", fieldWidth);
-        enterButton.setDefaultButton(true);
-        enterButton.setOnAction(e -> startLoginFlow(aliasField, passwordField, statusText, enterButton));
+        var content = new HBox(compactLayout ? 0 : 34);
+        content.setAlignment(Pos.TOP_LEFT);
+        content.setPadding(compactLayout ? new Insets(18, 20, 18, 20) : new Insets(22, 28, 22, 28));
+        content.setPrefSize(cardWidth, cardHeight);
+        content.setMaxSize(cardWidth, cardHeight);
 
-        aliasField.setOnAction(e -> passwordField.requestFocus());
-        passwordField.setOnAction(e -> enterButton.fire());
+        content.getChildren().add(formContainer);
 
-        var leftPane = new VBox(12, badge, title, subtitle, aliasField, passwordField, enterButton, statusText);
-        leftPane.setAlignment(Pos.CENTER_LEFT);
-        leftPane.setPadding(new Insets(6, 4, 6, 8));
-        leftPane.setPrefWidth(leftPaneWidth);
-        leftPane.setFillWidth(false);
+        if (!compactLayout) {
+            var operativePane = createOperativePane(cardWidth - leftPaneWidth - 80, contentHeight);
+            content.getChildren().add(operativePane);
+        }
 
+        var card = new StackPane(panelSurface, content);
+        card.setOpacity(0);
+        card.setTranslateY(26);
+
+        var cardFade = new FadeTransition(Duration.seconds(0.6), card);
+        cardFade.setFromValue(0.0);
+        cardFade.setToValue(1.0);
+        cardFade.setInterpolator(Interpolator.EASE_OUT);
+        animations.add(cardFade);
+
+        var cardRise = new TranslateTransition(Duration.seconds(0.6), card);
+        cardRise.setFromY(26);
+        cardRise.setToY(0);
+        cardRise.setInterpolator(Interpolator.EASE_OUT);
+        animations.add(cardRise);
+
+        var overlay = new StackPane(dim, signalA, signalB, topGlow, card);
+        overlay.setPrefSize(width, height);
+        return overlay;
+    }
+
+    private StackPane createOperativePane(double width, double height) {
+        double operativeHeight = Math.min(height * 0.62, 270);
         var operative = new ImageView(new Image(THIEF_PATH));
-        operative.setFitHeight(240);
+        operative.setFitHeight(operativeHeight);
         operative.setPreserveRatio(true);
         operative.setSmooth(true);
 
-        var operativeShadow = new Ellipse(96, 26);
-        operativeShadow.setFill(Color.rgb(0, 0, 0, 0.32));
-        operativeShadow.setTranslateY(108);
+        var operativeShadow = new Ellipse(100, 28);
+        operativeShadow.setFill(Color.rgb(0, 0, 0, 0.30));
+        operativeShadow.setTranslateY(operativeHeight * 0.45);
         operativeShadow.setBlendMode(BlendMode.MULTIPLY);
 
         var operativeFloat = new TranslateTransition(Duration.seconds(2.7), operative);
         operativeFloat.setFromY(0);
-        operativeFloat.setToY(-11);
+        operativeFloat.setToY(-10);
         operativeFloat.setAutoReverse(true);
         operativeFloat.setCycleCount(Animation.INDEFINITE);
         operativeFloat.setInterpolator(Interpolator.EASE_BOTH);
         animations.add(operativeFloat);
 
         var operativeSway = new RotateTransition(Duration.seconds(4.5), operative);
-        operativeSway.setFromAngle(-1.5);
-        operativeSway.setToAngle(1.5);
+        operativeSway.setFromAngle(-1.4);
+        operativeSway.setToAngle(1.4);
         operativeSway.setAutoReverse(true);
         operativeSway.setCycleCount(Animation.INDEFINITE);
         operativeSway.setInterpolator(Interpolator.EASE_BOTH);
@@ -392,39 +495,147 @@ public class PremiumMainMenu extends FXGLMenu {
         animations.add(shadowPulse);
 
         var operativePane = new StackPane(operativeShadow, operative);
-        operativePane.setPrefSize(cardWidth - leftPaneWidth - 60, cardHeight - 80);
+        operativePane.setPrefSize(width, height);
+        operativePane.setMaxSize(width, height);
+        operativePane.setAlignment(Pos.CENTER);
+        return operativePane;
+    }
 
-        var body = new HBox(compactLayout ? 0 : 28);
-        body.setAlignment(Pos.CENTER);
-        body.setPadding(compactLayout ? new Insets(24, 24, 24, 24) : new Insets(30, 34, 30, 34));
-        if (compactLayout) {
-            body.getChildren().add(leftPane);
-        } else {
-            body.getChildren().addAll(leftPane, operativePane);
-        }
-        body.setMaxSize(cardWidth, cardHeight);
-        body.setPrefSize(cardWidth, cardHeight);
-        body.setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+    private VBox buildLoginForm(boolean compactLayout,
+                                double leftPaneWidth,
+                                double fieldWidth,
+                                double spacing) {
+        var header = createAuthHeader(compactLayout, fieldWidth, "Mission Login",
+                "Authenticate with Firebase to unlock The Curator command deck.");
 
-        var card = new StackPane(panelSurface, body);
-        card.setOpacity(0);
-        card.setTranslateY(34);
+        var emailField = new TextField();
+        emailField.setPromptText("Email address");
+        configureLoginField(emailField, fieldWidth);
 
-        var cardFade = new FadeTransition(Duration.seconds(0.7), card);
-        cardFade.setFromValue(0.0);
-        cardFade.setToValue(1.0);
-        cardFade.setInterpolator(Interpolator.EASE_OUT);
-        animations.add(cardFade);
+        var passwordField = new PasswordField();
+        passwordField.setPromptText("Password");
+        configureLoginField(passwordField, fieldWidth);
 
-        var cardRise = new TranslateTransition(Duration.seconds(0.7), card);
-        cardRise.setFromY(34);
-        cardRise.setToY(0);
-        cardRise.setInterpolator(Interpolator.EASE_OUT);
-        animations.add(cardRise);
+        var statusText = createStatusText(compactLayout, fieldWidth, "Authenticate to start a mission.");
 
-        var overlay = new StackPane(dim, signalA, signalB, topGlow, card);
-        overlay.setPrefSize(width, height);
-        return overlay;
+        var loginButton = createLoginButton("Sign In", fieldWidth);
+        loginButton.setDefaultButton(true);
+
+        var googleButton = createLoginButton("Continue with Google", fieldWidth);
+        decorateGoogleButton(googleButton);
+
+        var divider = createOrDivider(fieldWidth);
+        var toRegisterButton = createLinkButton("Create new account");
+        var switchRow = createSwitchRow("New operator?", toRegisterButton, compactLayout);
+
+        loginButton.setOnAction(e -> startEmailLoginFlow(
+                emailField, passwordField, statusText,
+                loginButton, googleButton, toRegisterButton));
+
+        googleButton.setOnAction(e -> startGoogleLoginFlow(
+                AuthMode.LOGIN, statusText,
+                loginButton, googleButton, toRegisterButton,
+                emailField, passwordField));
+
+        toRegisterButton.setOnAction(e -> showAuthScreen(AuthMode.REGISTER, true));
+
+        emailField.setOnAction(e -> passwordField.requestFocus());
+        passwordField.setOnAction(e -> loginButton.fire());
+
+        var spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+
+        var form = new VBox(spacing,
+                header,
+                emailField,
+                passwordField,
+                loginButton,
+                divider,
+                googleButton,
+                statusText,
+                spacer,
+                switchRow
+        );
+        form.setAlignment(Pos.TOP_LEFT);
+        form.setFillWidth(true);
+        form.setPrefWidth(leftPaneWidth);
+        form.setMaxWidth(leftPaneWidth);
+        return form;
+    }
+
+    private VBox buildRegisterForm(boolean compactLayout,
+                                   double leftPaneWidth,
+                                   double fieldWidth,
+                                   double spacing,
+                                   String existingAlias) {
+        var header = createAuthHeader(compactLayout, fieldWidth, "Operator Registration",
+                "Create a new operator identity to access the command deck.");
+
+        var aliasField = new TextField("Operator".equals(existingAlias) ? "" : existingAlias);
+        aliasField.setPromptText("Operator name (required)");
+        configureLoginField(aliasField, fieldWidth);
+
+        var emailField = new TextField();
+        emailField.setPromptText("Email address");
+        configureLoginField(emailField, fieldWidth);
+
+        var passwordField = new PasswordField();
+        passwordField.setPromptText("Create password (min 6 chars)");
+        configureLoginField(passwordField, fieldWidth);
+
+        var confirmPasswordField = new PasswordField();
+        confirmPasswordField.setPromptText("Confirm password");
+        configureLoginField(confirmPasswordField, fieldWidth);
+
+        var statusText = createStatusText(compactLayout, fieldWidth, "Create your credentials to begin.");
+
+        var registerButton = createLoginButton("Register & Enter", fieldWidth);
+        registerButton.setDefaultButton(true);
+
+        var googleButton = createLoginButton("Register with Google", fieldWidth);
+        decorateGoogleButton(googleButton);
+
+        var divider = createOrDivider(fieldWidth);
+        var toLoginButton = createLinkButton("Back to sign in");
+        var switchRow = createSwitchRow("Already have access?", toLoginButton, compactLayout);
+
+        registerButton.setOnAction(e -> startEmailRegisterFlow(
+                aliasField, emailField, passwordField, confirmPasswordField,
+                statusText, registerButton, googleButton, toLoginButton));
+
+        googleButton.setOnAction(e -> startGoogleLoginFlow(
+                AuthMode.REGISTER, statusText,
+                registerButton, googleButton, toLoginButton,
+                aliasField, emailField, passwordField, confirmPasswordField));
+
+        toLoginButton.setOnAction(e -> showAuthScreen(AuthMode.LOGIN, true));
+
+        aliasField.setOnAction(e -> emailField.requestFocus());
+        emailField.setOnAction(e -> passwordField.requestFocus());
+        passwordField.setOnAction(e -> confirmPasswordField.requestFocus());
+        confirmPasswordField.setOnAction(e -> registerButton.fire());
+
+        var spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+
+        var form = new VBox(spacing,
+                header,
+                aliasField,
+                emailField,
+                passwordField,
+                confirmPasswordField,
+                registerButton,
+                divider,
+                googleButton,
+                statusText,
+                spacer,
+                switchRow
+        );
+        form.setAlignment(Pos.TOP_LEFT);
+        form.setFillWidth(true);
+        form.setPrefWidth(leftPaneWidth);
+        form.setMaxWidth(leftPaneWidth);
+        return form;
     }
 
     private void configureLoginField(TextField field, double width) {
@@ -447,57 +658,325 @@ public class PremiumMainMenu extends FXGLMenu {
         button.setPrefHeight(48);
         button.setStyle("-fx-background-color: linear-gradient(to right, rgba(24,72,118,0.95), rgba(20,58,95,0.92));"
                 + "-fx-border-color: rgba(241,212,153,0.72); -fx-border-radius: 10; -fx-background-radius: 10;");
-        applyHoverMotion(button, 1.04);
+        MenuComponents.applyHoverMotion(button, 1.04);
         return button;
     }
 
-    private void startLoginFlow(TextField aliasField, PasswordField passwordField, Text statusText, Button enterButton) {
-        GameSession.setOperatorAlias(aliasField.getText());
-        GameSession.setLoggedIn(true);
+    private void decorateGoogleButton(Button button) {
+        var logo = new ImageView(new Image(GOOGLE_LOGO_PATH));
+        logo.setFitHeight(20);
+        logo.setFitWidth(20);
+        logo.setPreserveRatio(true);
+        logo.setSmooth(true);
+        button.setGraphic(logo);
+        button.setContentDisplay(ContentDisplay.LEFT);
+        button.setGraphicTextGap(12);
+    }
 
-        aliasField.setDisable(true);
-        passwordField.setDisable(true);
-        enterButton.setDisable(true);
+    private VBox createAuthHeader(boolean compactLayout, double fieldWidth, String titleText, String subtitleText) {
+        var badge = new Text("SECURE ACCESS TERMINAL");
+        badge.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, compactLayout ? 15 : 17));
+        badge.setFill(Color.rgb(150, 214, 255));
 
-        statusText.setText("Identity accepted. Opening command deck...");
+        var title = new Text(titleText);
+        title.setFont(Font.font("Cinzel", FontWeight.BOLD, compactLayout ? 36 : 42));
+        title.setFill(Color.rgb(245, 220, 172));
+
+        var subtitle = new Text(subtitleText);
+        subtitle.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, compactLayout ? 17 : 19));
+        subtitle.setFill(Color.rgb(189, 220, 247));
+        subtitle.setTextAlignment(TextAlignment.LEFT);
+        subtitle.setWrappingWidth(fieldWidth);
+
+        var header = new VBox(6, badge, title, subtitle);
+        header.setAlignment(Pos.CENTER_LEFT);
+        return header;
+    }
+
+    private Text createStatusText(boolean compactLayout, double fieldWidth, String message) {
+        var statusText = new Text(message);
+        statusText.setFont(Font.font("Bodoni MT", FontWeight.SEMI_BOLD, compactLayout ? 16 : 18));
+        statusText.setFill(Color.rgb(133, 225, 174));
+        statusText.setWrappingWidth(fieldWidth);
+        return statusText;
+    }
+
+    private Button createLinkButton(String text) {
+        var button = new Button(text);
+        button.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, 16));
+        button.setTextFill(Color.rgb(150, 214, 255));
+        button.setStyle("-fx-background-color: transparent; -fx-padding: 0; -fx-underline: true;");
+        return button;
+    }
+
+    private HBox createSwitchRow(String labelText, Button linkButton, boolean compactLayout) {
+        var label = new Text(labelText);
+        label.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, compactLayout ? 16 : 18));
+        label.setFill(Color.rgb(189, 214, 238, 0.84));
+        var row = new HBox(6, label, linkButton);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    private Node createOrDivider(double width) {
+        var left = new Rectangle(width * 0.36, 1, Color.rgb(148, 205, 253, 0.35));
+        var right = new Rectangle(width * 0.36, 1, Color.rgb(148, 205, 253, 0.35));
+        var label = new Text("OR");
+        label.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, 14));
+        label.setFill(Color.rgb(186, 208, 234, 0.7));
+        var row = new HBox(8, left, label, right);
+        row.setAlignment(Pos.CENTER);
+        return row;
+    }
+
+    private void setNodeVisible(Node node, boolean visible) {
+        node.setVisible(visible);
+        node.setManaged(visible);
+    }
+
+    private void setControlsDisabled(boolean disabled, Control... controls) {
+        if (controls == null) {
+            return;
+        }
+        for (var control : controls) {
+            if (control != null) {
+                control.setDisable(disabled);
+            }
+        }
+    }
+
+    private void startEmailLoginFlow(TextField emailField,
+                                     PasswordField passwordField,
+                                     Text statusText,
+                                     Button loginButton,
+                                     Button googleButton,
+                                     Button switchButton) {
+        setControlsDisabled(true, emailField, passwordField, loginButton, googleButton, switchButton);
+
+        statusText.setText("Contacting Firebase identity gateway...");
+        statusText.setFill(Color.rgb(133, 225, 174));
+
+        var email = emailField.getText();
+        var password = passwordField.getText();
+        authService.signIn(email, password)
+                .thenCompose(session -> resolveDisplayName(session)
+                        .thenApply(name -> new AuthOutcome(session, name)))
+                .thenAccept(outcome -> Platform.runLater(() -> finalizeLogin(outcome, statusText)))
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> handleAuthFailure(ex, statusText,
+                            emailField, passwordField, loginButton, googleButton, switchButton));
+                    return null;
+                });
+    }
+
+    private void startEmailRegisterFlow(TextField displayNameField,
+                                        TextField emailField,
+                                        PasswordField passwordField,
+                                        PasswordField confirmPasswordField,
+                                        Text statusText,
+                                        Button registerButton,
+                                        Button googleButton,
+                                        Button switchButton) {
+        setControlsDisabled(true, displayNameField, emailField, passwordField, confirmPasswordField,
+                registerButton, googleButton, switchButton);
+
+        String displayName = displayNameField.getText() == null ? "" : displayNameField.getText().trim();
+        if (displayName.isBlank()) {
+            statusText.setText("Operator name is required.");
+            statusText.setFill(Color.rgb(255, 140, 140));
+            showPopup("Missing Name", "Please enter an operator name.");
+            setControlsDisabled(false, displayNameField, emailField, passwordField, confirmPasswordField,
+                    registerButton, googleButton, switchButton);
+            return;
+        }
+
+        String password = passwordField.getText();
+        String confirm = confirmPasswordField.getText();
+        if (password == null || !password.equals(confirm)) {
+            statusText.setText("Passwords do not match.");
+            statusText.setFill(Color.rgb(255, 140, 140));
+            showPopup("Check Password", "Passwords do not match.");
+            setControlsDisabled(false, displayNameField, emailField, passwordField, confirmPasswordField,
+                    registerButton, googleButton, switchButton);
+            return;
+        }
+
+        statusText.setText("Creating identity in Firebase...");
+        statusText.setFill(Color.rgb(133, 225, 174));
+
+        authService.register(emailField.getText(), password)
+                .thenCompose(session -> upsertProfile(session, displayName)
+                        .thenApply(profile -> new AuthOutcome(session, profile.displayName())))
+                .thenAccept(outcome -> Platform.runLater(() -> finalizeLogin(outcome, statusText)))
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> handleAuthFailure(ex, statusText,
+                            displayNameField, emailField, passwordField, confirmPasswordField,
+                            registerButton, googleButton, switchButton));
+                    return null;
+                });
+    }
+
+    private void startGoogleLoginFlow(AuthMode mode,
+                                      Text statusText,
+                                      Button primaryButton,
+                                      Button googleButton,
+                                      Button switchButton,
+                                      Control... formFields) {
+        setControlsDisabled(true, formFields);
+        setControlsDisabled(true, primaryButton, googleButton, switchButton);
+
+        statusText.setText("Opening Google login in your browser...");
+        statusText.setFill(Color.rgb(133, 225, 174));
+
+        authService.signInWithGoogle()
+                .thenCompose(session -> {
+                    if (mode == AuthMode.REGISTER && !session.isNewUser()) {
+                        return CompletableFuture.failedFuture(new IllegalStateException("Already Registered."));
+                    }
+                    if (session.isNewUser()) {
+                        String alias = deriveAliasFromEmail(session.email());
+                        return upsertProfile(session, alias)
+                                .thenApply(profile -> new AuthOutcome(session, profile.displayName()));
+                    }
+                    return resolveDisplayName(session)
+                            .thenApply(name -> new AuthOutcome(session, name));
+                })
+                .thenAccept(outcome -> Platform.runLater(() -> finalizeLogin(outcome, statusText)))
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> {
+                        handleGoogleFailure(ex, statusText, primaryButton, googleButton, switchButton);
+                        setControlsDisabled(false, formFields);
+                    });
+                    return null;
+                });
+    }
+
+    private void finalizeLogin(AuthOutcome outcome, Text statusText) {
+        String alias = outcome.displayName();
+        if (alias == null || alias.isBlank()) {
+            alias = deriveAliasFromEmail(outcome.session().email());
+        }
+        GameSession.setOperatorAlias(alias);
+        GameSession.setAuthSession(outcome.session()); // Virtual identity: keep userId/idToken for this session.
+
+        statusText.setText("Identity verified. Opening command deck...");
         statusText.setFill(Color.rgb(125, 231, 183));
 
         revealMenuFromLogin();
     }
 
-    private void revealMenuFromLogin() {
-        if (loginOverlay == null) {
-            return;
+    private void handleAuthFailure(Throwable ex, Text statusText, Control... controls) {
+        String message = extractErrorMessage(ex);
+        String resolved = (message == null || message.isBlank()) ? "Authentication failed." : message;
+
+        statusText.setText(resolved);
+        statusText.setFill(Color.rgb(255, 140, 140));
+
+        if ("Already Registered.".equalsIgnoreCase(resolved.trim())) {
+            showPopup("Already Registered", "Already Registered.");
         }
 
+        setControlsDisabled(false, controls);
+    }
+
+    private void handleGoogleFailure(Throwable ex, Text statusText, Control... controls) {
+        String message = extractErrorMessage(ex);
+        String base = (message == null || message.isBlank()) ? "Google login failed." : message;
+        String resolved = base + " Use email/password below.";
+
+        statusText.setText(resolved);
+        statusText.setFill(Color.rgb(255, 140, 140));
+
+        if ("Already Registered.".equalsIgnoreCase(base.trim())) {
+            showPopup("Already Registered", "Already Registered.");
+        }
+
+        setControlsDisabled(false, controls);
+    }
+
+    private CompletableFuture<String> resolveDisplayName(AuthSession session) {
+        return profileRepository.fetchProfile(session)
+                .handle((profile, ex) -> profile)
+                .thenCompose(profile -> {
+                    if (profile == null || profile.displayName() == null || profile.displayName().isBlank()) {
+                        String alias = deriveAliasFromEmail(session.email());
+                        return upsertProfile(session, alias)
+                                .thenApply(UserProfile::displayName)
+                                .exceptionally(err -> alias);
+                    }
+                    return CompletableFuture.completedFuture(profile.displayName());
+                });
+    }
+
+    private CompletableFuture<UserProfile> upsertProfile(AuthSession session, String displayName) {
+        String normalized = displayName == null ? "" : displayName.trim();
+        UserProfile profile = new UserProfile(session.userId(), normalized, session.email());
+        return profileRepository.upsertProfile(session, profile);
+    }
+
+    private String deriveAliasFromEmail(String email) {
+        if (email == null || email.isBlank() || !email.contains("@")) {
+            return "Operator";
+        }
+        String prefix = email.split("@")[0];
+        return prefix == null || prefix.isBlank() ? "Operator" : prefix;
+    }
+
+    private String extractErrorMessage(Throwable ex) {
+        if (ex == null) {
+            return null;
+        }
+        Throwable root = ex.getCause() != null ? ex.getCause() : ex;
+        return root.getMessage();
+    }
+
+    private void showPopup(String title, String message) {
+        Platform.runLater(() -> {
+            var alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.show();
+        });
+    }
+
+    private void revealMenuFromLogin() {
+        buildMainMenuLayer(getAppWidth(), getAppHeight());
         menuLayer.setVisible(true);
         menuLayer.setDisable(false);
 
-        var menuFade = new FadeTransition(Duration.seconds(0.62), menuLayer);
-        menuFade.setFromValue(menuLayer.getOpacity());
+        if (authLayer == null) {
+            showHomePanel();
+            return;
+        }
+
+        menuLayer.setOpacity(0.0);
+        var menuFade = new FadeTransition(Duration.seconds(0.55), menuLayer);
+        menuFade.setFromValue(0.0);
         menuFade.setToValue(1.0);
         menuFade.setInterpolator(Interpolator.EASE_OUT);
 
-        var menuRise = new TranslateTransition(Duration.seconds(0.62), menuLayer);
-        menuRise.setFromY(menuLayer.getTranslateY());
-        menuRise.setToY(0);
-        menuRise.setInterpolator(Interpolator.EASE_OUT);
-
-        var overlayFade = new FadeTransition(Duration.seconds(0.5), loginOverlay);
-        overlayFade.setFromValue(1.0);
-        overlayFade.setToValue(0.0);
-        overlayFade.setInterpolator(Interpolator.EASE_IN);
-        overlayFade.setOnFinished(e -> {
-            getContentRoot().getChildren().remove(loginOverlay);
-            loginOverlay = null;
+        var authFade = new FadeTransition(Duration.seconds(0.45), authLayer);
+        authFade.setFromValue(authLayer.getOpacity());
+        authFade.setToValue(0.0);
+        authFade.setInterpolator(Interpolator.EASE_IN);
+        authFade.setOnFinished(e -> {
+            authLayer.setVisible(false);
+            authLayer.setDisable(true);
+            authLayer.setOpacity(1.0);
+            if (pendingAction != null) {
+                var next = pendingAction;
+                pendingAction = null;
+                next.run();
+            }
             showHomePanel();
         });
-
         menuFade.play();
-        menuRise.play();
-        overlayFade.play();
+        authFade.play();
     }
 
+    
+    
     private double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
     }
@@ -598,227 +1077,63 @@ public class PremiumMainMenu extends FXGLMenu {
         button.setOnAction(e -> action.run());
         button.setOnMouseEntered(e -> button.setStyle(hoverStyle));
         button.setOnMouseExited(e -> button.setStyle(baseStyle));
-        applyHoverMotion(button, 1.03);
+        MenuComponents.applyHoverMotion(button, 1.03);
         return button;
     }
 
-    private Button createPanelButton(String text) {
-        String baseStyle = "-fx-background-color: linear-gradient(to right, rgba(16,38,66,0.80), rgba(12,30,52,0.52));"
-                + "-fx-border-color: rgba(211,189,131,0.52); -fx-border-radius: 10; -fx-background-radius: 10;";
-        String hoverStyle = "-fx-background-color: linear-gradient(to right, rgba(28,62,102,0.90), rgba(18,44,75,0.67));"
-                + "-fx-border-color: rgba(243,214,151,0.82); -fx-border-radius: 10; -fx-background-radius: 10;";
+    
+    @Override
+    public void showHomePanel() { HomePanel.buildAndShow(this); }
 
-        var button = new Button(text);
-        button.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, 20));
-        button.setTextFill(Color.rgb(238, 223, 196));
-        button.setPrefWidth(320);
-        button.setPrefHeight(42);
-        button.setStyle(baseStyle);
-        button.setOnMouseEntered(e -> button.setStyle(hoverStyle));
-        button.setOnMouseExited(e -> button.setStyle(baseStyle));
-        applyHoverMotion(button, 1.025);
-        return button;
+    @Override
+    public void showNewGamePanel() { NewGamePanel.buildAndShow(this); }
+
+    @Override
+    public void showControlsPanel() { ControlsPanel.buildAndShow(this); }
+
+    @Override
+    public void showSettingsPanel() { SettingsPanel.buildAndShow(this, profileRepository); }
+
+    @Override
+    public void showAboutPanel() { AboutPanel.buildAndShow(this); }
+
+    @Override
+    public void showLibraryPanel() {
+        setPanelTitle("Stolen Art Library");
+        var library = new com.curator.ui.library.LibraryPanel(stolenArtRepository, com.curator.state.GameSession.getAuthSession());
+        swapContent(library);
     }
 
-    private void applyHoverMotion(Button button, double targetScale) {
-        var existingEnter = button.getOnMouseEntered();
-        button.setOnMouseEntered(e -> {
-            if (existingEnter != null) {
-                existingEnter.handle(e);
-            }
-            var scaleUp = new ScaleTransition(Duration.seconds(0.16), button);
-            scaleUp.setToX(targetScale);
-            scaleUp.setToY(targetScale);
-            scaleUp.setInterpolator(Interpolator.EASE_OUT);
-            scaleUp.play();
-        });
+    @Override
+    public com.curator.domain.GameMode getSelectedMode() { return selectedMode; }
 
-        var existingExit = button.getOnMouseExited();
-        button.setOnMouseExited(e -> {
-            if (existingExit != null) {
-                existingExit.handle(e);
-            }
-            var scaleDown = new ScaleTransition(Duration.seconds(0.16), button);
-            scaleDown.setToX(1.0);
-            scaleDown.setToY(1.0);
-            scaleDown.setInterpolator(Interpolator.EASE_OUT);
-            scaleDown.play();
-        });
+    @Override
+    public void setSelectedMode(com.curator.domain.GameMode mode) { this.selectedMode = mode; }
+
+    @Override
+    public void setPanelTitle(String title) { panelTitle.setText(title); }
+    
+    @Override
+    public void requestNewGame() {
+        requestAuthentication(super::fireNewGame);
     }
 
-    private void swapContent(Node node) {
+    @Override
+    public void requestAuthentication(Runnable onSuccess) {
+        if (com.curator.state.GameSession.isLoggedIn()) {
+            onSuccess.run();
+            return;
+        }
+        pendingAction = onSuccess;
+        showAuthScreen(AuthMode.LOGIN, true);
+    }
+
+    @Override
+    public void swapContent(javafx.scene.Node node) {
         contentPanel.getChildren().setAll(node);
-
-        var fade = new FadeTransition(Duration.seconds(0.23), node);
+        var fade = new javafx.animation.FadeTransition(javafx.util.Duration.seconds(0.23), node);
         fade.setFromValue(0.0);
         fade.setToValue(1.0);
         fade.play();
-    }
-
-    private void showHomePanel() {
-        panelTitle.setText("Mission Brief");
-
-        var intro = new Text(
-                "Welcome, " + GameSession.getOperatorAlias() + ". Infiltrate the museum, solve Heart API puzzles,\n"
-                        + "steal high-value art, and escape before security locks you in."
-        );
-        intro.setFill(Color.rgb(189, 220, 250, 0.95));
-        intro.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, 23));
-
-        var modeText = new Text("Selected Mode: " + selectedMode.displayName());
-        modeText.setFill(Color.rgb(245, 211, 145));
-        modeText.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, 25));
-
-        var startButton = createPanelButton("Start New Mission");
-        startButton.setOnAction(e -> {
-            GameSession.setSelectedMode(selectedMode);
-            fireNewGame();
-        });
-
-        var openModes = createPanelButton("Change Difficulty");
-        openModes.setOnAction(e -> showNewGamePanel());
-
-        var box = new VBox(18, intro, modeText, new HBox(14, startButton, openModes));
-        box.setPadding(new Insets(10, 12, 10, 12));
-        swapContent(box);
-    }
-
-    private void showNewGamePanel() {
-        panelTitle.setText("Select Difficulty");
-
-        var details = new Text();
-        details.setFill(Color.rgb(178, 214, 251));
-        details.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, 20));
-
-        var modes = new VBox(12);
-        for (GameMode mode : GameMode.values()) {
-            var button = createPanelButton(mode.displayName());
-            button.setOnAction(e -> {
-                selectedMode = mode;
-                GameSession.setSelectedMode(mode);
-                details.setText(modeDetails(mode));
-            });
-            modes.getChildren().add(button);
-        }
-
-        details.setText(modeDetails(selectedMode));
-
-        var launch = createPanelButton("Launch Mission");
-        launch.setOnAction(e -> {
-            GameSession.setSelectedMode(selectedMode);
-            fireNewGame();
-        });
-
-        var box = new VBox(14, modes, details, launch);
-        box.setPadding(new Insets(8, 12, 8, 12));
-        swapContent(box);
-    }
-
-    private void showLibraryPanel() {
-        panelTitle.setText("Stolen Art Library");
-
-        var records = GameSession.getVaultSnapshot();
-        var summary = new Text("Recovered Pieces: " + records.size() + "   |   Vault Value: $" + GameSession.getVaultValue() + "M");
-        summary.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, 22));
-        summary.setFill(Color.rgb(246, 218, 154));
-
-        var list = new ListView<String>();
-        list.setPrefSize(760, 360);
-        list.setStyle("-fx-background-color: rgba(4,10,18,0.62); -fx-control-inner-background: rgba(4,10,18,0.62);"
-                + "-fx-text-fill: #cfe7ff; -fx-font-size: 16px;");
-
-        if (records.isEmpty()) {
-            list.getItems().add("No successful heists yet. Complete a mission and escape to store stolen art.");
-        } else {
-            for (StolenArtRecord record : records) {
-                list.getItems().add(record.stolenAt() + " | " + record.mode() + " | $" + record.value() + "M | "
-                        + record.title() + " - " + record.artist());
-            }
-        }
-
-        var clear = createPanelButton("Clear Local Library");
-        clear.setOnAction(e -> {
-            GameSession.clearVault();
-            showLibraryPanel();
-        });
-
-        var box = new VBox(14, summary, list, clear);
-        box.setPadding(new Insets(8, 12, 8, 12));
-        swapContent(box);
-    }
-
-    private void showControlsPanel() {
-        panelTitle.setText("Controls");
-
-        var controls = new Text(
-                "W / A / S / D  : Move Agent\n"
-                        + "ESC            : Pause / Menu\n"
-                        + "F11            : Toggle Full Screen\n"
-                        + "Touch Artwork  : Trigger Heart Puzzle\n\n"
-                        + "Tip: avoid both guards and their torch cones."
-        );
-        controls.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, 24));
-        controls.setFill(Color.rgb(189, 221, 252, 0.96));
-
-        var openModes = createPanelButton("Choose Difficulty");
-        openModes.setOnAction(e -> showNewGamePanel());
-
-        var box = new VBox(22, controls, openModes);
-        box.setPadding(new Insets(10, 12, 10, 12));
-        swapContent(box);
-    }
-
-    private void showSettingsPanel() {
-        panelTitle.setText("Settings");
-
-        var conesToggle = new CheckBox("Show Guard Torch Cones");
-        conesToggle.setSelected(GameSession.isShowGuardCones());
-        conesToggle.setTextFill(Color.rgb(232, 216, 184));
-        conesToggle.setFont(Font.font("Cinzel", FontWeight.SEMI_BOLD, 22));
-        conesToggle.setOnAction(e -> GameSession.setShowGuardCones(conesToggle.isSelected()));
-
-        var qualityText = new Text("Visual Profile: Premium Menu + Dynamic Lighting + Heart Puzzle Flow");
-        qualityText.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, 22));
-        qualityText.setFill(Color.rgb(182, 214, 250, 0.96));
-
-        var restore = createPanelButton("Restore Defaults");
-        restore.setOnAction(e -> {
-            GameSession.setSelectedMode(GameMode.MEDIUM);
-            GameSession.setShowGuardCones(true);
-            selectedMode = GameMode.MEDIUM;
-            showSettingsPanel();
-        });
-
-        var box = new VBox(18, conesToggle, qualityText, restore);
-        box.setPadding(new Insets(10, 12, 10, 12));
-        swapContent(box);
-    }
-
-    private void showAboutPanel() {
-        panelTitle.setText("About The Curator");
-
-        var about = new Text(
-                "University Assignment Build\n\n"
-                        + "- Event-driven gameplay with FXGL\n"
-                        + "- Interoperability with Art Institute API\n"
-                        + "- Heart API puzzle challenge before each theft\n"
-                        + "- Session library for recovered artworks\n"
-                        + "- Difficulty-scaled missions (Easy / Medium / Hard)"
-        );
-        about.setFont(Font.font("Bodoni MT", FontWeight.NORMAL, 22));
-        about.setFill(Color.rgb(186, 219, 252, 0.96));
-
-        var box = new VBox(18, about);
-        box.setPadding(new Insets(10, 12, 10, 12));
-        swapContent(box);
-    }
-
-    private String modeDetails(GameMode mode) {
-        return mode.displayName() + " Mode\n"
-                + "Time: " + mode.missionTimeSeconds() + " sec\n"
-                + "Required Art: " + mode.requiredArtCount() + "\n"
-                + "Guards: " + mode.guardCount() + " (speed " + (int) mode.guardSpeed() + ")\n"
-                + "Puzzle: " + mode.puzzleTimeSeconds() + " sec, " + mode.puzzleAttempts() + " attempts\n"
-                + "Art Value Range: $" + mode.minArtValue() + "M - $" + mode.maxArtValue() + "M";
     }
 }

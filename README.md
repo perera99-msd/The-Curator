@@ -1,182 +1,163 @@
 # 🎮 The Curator
 
-> **A cinematic stealth-heist game built with Java + FXGL**
->
-> Infiltrate a high-security museum, solve live puzzle challenges, recover high-value artwork, and escape before time runs out.
+> **A premium stealth-heist museum game built with Java 21 + FXGL 17.3**
 
-[![Java](https://img.shields.io/badge/Java-21-blue.svg)](https://openjdk.org/projects/jdk/21/)
-[![Maven](https://img.shields.io/badge/Build-Maven-C71A36.svg)](https://maven.apache.org/)
-[![FXGL](https://img.shields.io/badge/Game%20Engine-FXGL%2017.3-FF9800.svg)](https://github.com/AlmasB/FXGL)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+`The Curator` is a top-down stealth experience where you infiltrate a guarded museum, secure valuable artwork through puzzle interactions, and extract before time expires.
 
 ---
 
-## 📚 Table of Contents
+## ✨ Key Features
 
-- [✨ Highlights](#-highlights)
-- [🧩 Core Gameplay Loop](#-core-gameplay-loop)
-- [🎯 Difficulty Profiles](#-difficulty-profiles)
-- [🕹️ Controls](#️-controls)
-- [🛠️ Tech Stack](#️-tech-stack)
-- [🌐 External Integrations](#-external-integrations)
-- [🧱 Project Structure](#-project-structure)
-- [🚀 Getting Started](#-getting-started)
-- [🧠 Architecture Overview](#-architecture-overview)
-- [🖥️ Display & Scaling](#️-display--scaling)
-- [🖼️ Gallery](#️-gallery)
-- [🧪 Reliability Notes](#-reliability-notes)
-- [🛟 Troubleshooting](#-troubleshooting)
-- [🗺️ Roadmap](#️-roadmap)
-- [📄 License](#-license)
+- 🕵️ **Stealth gameplay loop** with patrol guards and line-of-sight detection.
+- 🧱 **Hardened collision system** (player/guards cannot pass through walls and solid doors).
+- 🧭 **Improved guard routing** with wall-aware patrol behavior.
+- 🖼️ **Premium museum visuals** (enhanced backdrop, effects, animated elements).
+- 🚪 **Door interaction system** with real exit, fake exit, locked interior doors, and start door.
+- 🧩 **Puzzle sub-scene integration** for artwork acquisition.
+- 🎚️ **Difficulty scaling** across Easy / Medium / Hard.
+- ☁️ **Service-oriented architecture** with cloud-ready repositories and fallback implementations.
 
 ---
 
-## ✨ Highlights
+## 🔁 Core Gameplay Flow
 
-- 🔐 **Animated login-first flow** before entering the command deck (mock auth mode).
-- 🧭 **Premium multi-panel main menu** (Home, New Game, Library, Controls, Settings, About).
-- 🕵️ **Stealth gameplay loop** with patrol guards and detection cones.
-- 🧩 **Heart API challenge** on each artwork interaction.
-- 🖼️ **Live museum artwork sourcing** from the Art Institute of Chicago API.
-- 📚 **Persistent session vault** to track recovered artworks and total value.
-- 🧠 **Difficulty scaling** across Easy / Medium / Hard with tuned mission parameters.
-- 🖥️ **Responsive display support** with fullscreen startup + resize scaling.
+1. 🚪 Start from the menu and launch a mission.
+2. 🎯 Select difficulty.
+3. 🧍 Navigate corridors while avoiding guards.
+4. 🖼️ Interact with art and solve the puzzle popup.
+5. 💰 Collect required artwork count.
+6. ✅ Reach the real exit to complete the mission.
 
 ---
 
-## 🧩 Core Gameplay Loop
+## 🎮 Controls
 
-1. Enter through the login screen.
-2. Choose mission difficulty.
-3. Navigate museum corridors while avoiding guard vision.
-4. Interact with artworks to trigger puzzle challenge.
-5. Solve puzzle to secure the artwork.
-6. Reach exit after meeting required artwork quota.
-7. Mission result is saved to session vault.
-
----
-
-## 🎯 Difficulty Profiles
-
-| Mode | Mission Time | Required Art | Guards | Puzzle Time | Attempts | Art Value Range |
-|---|---:|---:|---:|---:|---:|---:|
-| Easy | 160s | 2 | 2 | 14s | 2 | $10M - $16M |
-| Medium | 120s | 3 | 3 | 11s | 3 | $14M - $24M |
-| Hard | 90s | 4 | 4 | 8s | 4 | $20M - $34M |
-
----
-
-## 🕹️ Controls
-
-| Action | Key |
+| Action | Keys |
 |---|---|
-| Move | `W A S D` or Arrow Keys |
-| Open menu / pause | `ESC` |
-| Toggle fullscreen | `F11` |
-| Trigger puzzle | Touch artwork |
+| Move | `W A S D` or `↑ ↓ ← →` |
+| Sprint | Hold `Z` |
+| Sneak | Hold `C` |
+| Interact (Art / Door) | `ENTER` |
+
+---
+
+## 🎯 Difficulty Configuration (Current)
+
+| Mode | Time | Required Art | Guards | Art Spawns | Guard Speed | Puzzle Time | Attempts | Art Value (M) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| EASY | 160s | 2 | 2 | 4 | 62 | 14s | 2 | 10–16 |
+| MEDIUM | 120s | 3 | 3 | 5 | 78 | 11s | 3 | 14–24 |
+| HARD | 90s | 4 | 4 | 6 | 96 | 8s | 4 | 20–34 |
+
+_Source: `com.curator.domain.GameMode`._
 
 ---
 
 ## 🛠️ Tech Stack
 
 - ☕ **Java 21**
-- 🎮 **FXGL 17.3** (game loop, scenes, entities, input, physics)
-- 🧱 **JavaFX** (UI rendering and transitions)
-- 📦 **Maven** (build and dependency management)
-- 🔎 **Gson** (JSON parsing)
-- 🌐 **Java HttpClient** (remote API requests)
+- 🎮 **FXGL 17.3** + JavaFX
+- 📦 **Maven**
+- 🌐 **Java HttpClient**
+- 🧾 **Gson**
 
 ---
 
-## 🌐 External Integrations
-
-### 🖼️ Art Institute of Chicago API
-- Fetches live artwork metadata and image IDs.
-- Converts image IDs to IIIF image URLs.
-- Includes local fallback generation when API/network is unavailable.
-
-### ❤️ Heart API
-- Fetches puzzle challenge JSON from HEART API.
-- Validates numeric answers client-side.
-- Includes offline arithmetic fallback puzzle if API is unavailable.
-
----
-
-## 🧱 Project Structure
+## 🧱 Current Project Structure
 
 ```text
 TheCurator/
-├── .mvn/
 ├── LICENSE
 ├── README.md
 ├── pom.xml
 ├── system/
-│   ├── fxgl.bundle
-│   └── Readme.txt
+│   └── fxgl.bundle
+├── logs/
 └── src/
     └── main/
-        ├── java/
-        │   └── com/
-        │       └── curator/
-        │           ├── EntityType.java
-        │           ├── Launcher.java
-        │           ├── MuseumFactory.java
-        │           ├── TheCuratorApp.java
-        │           ├── components/
-        │           │   └── PatrolComponent.java
-        │           ├── model/
-        │           │   ├── GameMode.java
-        │           │   └── StolenArtRecord.java
-        │           ├── services/
-        │           │   ├── HeartService.java
-        │           │   └── MuseumService.java
-        │           ├── state/
-        │           │   └── GameSession.java
-        │           └── ui/
-        │               ├── HackingSubScene.java
-        │               └── PremiumMainMenu.java
+        ├── java/com/curator/
+        │   ├── app/
+        │   │   ├── Launcher.java
+        │   │   ├── ServiceRegistry.java
+        │   │   └── TheCuratorApp.java
+        │   ├── config/
+        │   │   └── FirebaseConfig.java
+        │   ├── domain/
+        │   │   ├── ArtData.java
+        │   │   ├── AuthSession.java
+        │   │   ├── GameMode.java
+        │   │   ├── HeartPuzzle.java
+        │   │   ├── HeistReport.java
+        │   │   ├── StolenArtEntry.java
+        │   │   ├── StolenArtRecord.java
+        │   │   └── UserProfile.java
+        │   ├── gameplay/
+        │   │   ├── EntityType.java
+        │   │   ├── MuseumFactory.java
+        │   │   └── components/PatrolComponent.java
+        │   ├── services/
+        │   │   ├── AuthService.java
+        │   │   ├── ArtProvider.java
+        │   │   ├── HeistReportRepository.java
+        │   │   ├── PuzzleProvider.java
+        │   │   ├── StolenArtRepository.java
+        │   │   ├── UserProfileRepository.java
+        │   │   └── impl/
+        │   ├── state/
+        │   │   └── GameSession.java
+        │   └── ui/
+        │       ├── PremiumMainMenu.java
+        │       ├── HackingSubScene.java
+        │       ├── game/GameHud.java
+        │       ├── library/LibraryPanel.java
+        │       └── panels/
         └── resources/
-            └── assests/
-                ├── menu/
-                │   ├── menu_bg.png
-                │   └── thief.png
-                ├── screenshots/
-                │   ├── 01-login-screen.png
-                │   ├── 02-main-menu-home.png
-                │   ├── 03-difficulty-selection.png
-                │   ├── 04-stealth-gameplay.png
-                │   ├── 05-heart-api-puzzle.png
-                │   └── 06-mission-complete.png
-                └── video/
-                    └── background.mp4
+            ├── firebase.properties
+            └── assets/
+                ├── textures/
+                └── screenshots/
+                    ├── LoginPage.png
+                    ├── MainMenu.png
+                    ├── MainGamePlay.png
+                    ├── HearAPIPopUp.png
+                    └── StolenArts.png
 ```
-
-> Note: The resource folder name is intentionally `assests` in the current project structure and code paths.
 
 ---
 
-## 🚀 Getting Started
+## 🖼️ Screenshots
 
-### 1) Prerequisites
+### 1) 🔐 Login
+![Login](src/main/resources/assets/screenshots/LoginPage.png)
 
-- Java 21+
-- Maven 3.8+
-- Internet connection (optional but recommended for live artwork + puzzle APIs)
+### 2) 🧭 Main Menu
+![Main Menu](src/main/resources/assets/screenshots/MainMenu.png)
 
-### 2) Clone
+### 3) 🕹️ Museum Gameplay
+![Gameplay](src/main/resources/assets/screenshots/MainGamePlay.png)
 
-```bash
-git clone https://github.com/perera99-msd/The-Curator.git
-cd The-Curator
-```
+### 4) 🧩 Puzzle Interaction Popup
+![Puzzle Popup](src/main/resources/assets/screenshots/HearAPIPopUp.png)
 
-### 3) Run
+### 5) 🏆 Stolen Art Results / Library
+![Stolen Arts](src/main/resources/assets/screenshots/StolenArts.png)
+
+---
+
+## 🚀 Build & Run
+
+### Prerequisites
+
+- JDK `21+`
+- Maven `3.8+`
+
+### Run (development)
 
 ```bash
 mvn clean javafx:run
 ```
 
-### 4) Build
+### Build
 
 ```bash
 mvn clean package
@@ -184,84 +165,16 @@ mvn clean package
 
 ---
 
-## 🧠 Architecture Overview
+## 🧠 Architecture at a Glance
 
-- `TheCuratorApp`: Main game lifecycle (settings, input, world, UI, collisions, mission flow).
-- `PremiumMainMenu`: Login overlay + premium animated menu navigation.
-- `HackingSubScene`: Timed puzzle overlay with attempts + result callback.
-- `MuseumFactory`: Entity creation for player, guards, walls, art, and doors.
-- `PatrolComponent`: Guard pathing and vision-direction rotation behavior.
-- `MuseumService`: Artwork feed loading and fallback generation.
-- `HeartService`: Puzzle retrieval/validation and fallback challenge.
-- `GameSession`: Shared session state, selected mode, settings flags, and vault data.
-
----
-
-## 🖥️ Display & Scaling
-
-- Starts in fullscreen by default.
-- Supports window resize while preserving aspect ratio.
-- Uses FXGL scaling for consistent layout between small screens and large displays.
-- `F11` toggles fullscreen/windowed mode at runtime.
-
----
-
-## 🖼️ Gallery
-
-### Login & Menu
-
-| Login Screen | Main Menu |
-|---|---|
-| ![Login Screen](src/main/resources/assests/screenshots/01-login-screen.png) | ![Main Menu](src/main/resources/assests/screenshots/02-main-menu-home.png) |
-
-| Difficulty Selection |
-|---|
-| ![Difficulty Selection](src/main/resources/assests/screenshots/03-difficulty-selection.png) |
-
-### Gameplay
-
-| Stealth Gameplay | Heart API Puzzle |
-|---|---|
-| ![Stealth Gameplay](src/main/resources/assests/screenshots/04-stealth-gameplay.png) | ![Heart API Puzzle](src/main/resources/assests/screenshots/05-heart-api-puzzle.png) |
-
-| Mission Complete |
-|---|
-| ![Mission Complete](src/main/resources/assests/screenshots/06-mission-complete.png) |
-
----
-
-## 🧪 Reliability Notes
-
-- If external APIs fail or are unreachable, gameplay still continues using fallback data.
-- Puzzle timeout and attempt limits are mode-based and enforced in real time.
-- Mission success requires meeting quota **and** reaching exit.
-
----
-
-## 🛟 Troubleshooting
-
-- If the app does not launch:
-  - Verify Java version with `java -version` (must be 21+).
-  - Verify Maven with `mvn -version`.
-- If online images/puzzles do not load:
-  - Check internet connectivity.
-  - The game should still continue via fallback content.
-- If UI looks too zoomed:
-  - Toggle `F11` to switch fullscreen/windowed.
-  - Resize window; scaling is handled automatically.
-
----
-
-## 🗺️ Roadmap
-
-- ✅ Login-first flow (mock mode)
-- ⏭️ Real authentication backend integration
-- ⏭️ Additional levels and guard AI patterns
-- ⏭️ Soundtrack/SFX polish and HUD refinement
-- ⏭️ Save/load profile support
+- `TheCuratorApp` → game lifecycle, level generation, input, collision, mission flow.
+- `MuseumFactory` → entity visuals, hitboxes, and gameplay entity construction.
+- `PatrolComponent` → guard patrol motion + waypoint behavior.
+- `HackingSubScene` → puzzle interaction and result callbacks.
+- `ServiceRegistry` → wiring for API/auth/repository services.
 
 ---
 
 ## 📄 License
 
-Distributed under the **MIT License**. See [LICENSE](LICENSE) for full text.
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE).
